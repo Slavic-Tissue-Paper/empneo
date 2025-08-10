@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hogwarts Task Manager</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
+  
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+  
+  body { 
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0a0f;
+    color: #e8e8e8;
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+      radial-gradient(circle at 20% 20%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(255, 215, 0, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 40% 60%, rgba(75, 0, 130, 0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  /* Loading Animation */
+  .loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #0a0a0f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeOut 0.8s ease 2.5s forwards;
+  }
+  
+  .warp-container {
+    perspective: 1000px;
+    transform-style: preserve-3d;
+  }
+  
+  .warp-text {
+    font-family: 'Cinzel', serif;
+    font-size: 4rem;
+    font-weight: 700;
+    color: #ffd700;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+    transform: translateZ(-2000px) rotateY(45deg);
+    animation: warpIn 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+  
+  @keyframes warpIn {
+    0% {
+      transform: translateZ(-2000px) rotateY(45deg) scale(0.1);
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateZ(0px) rotateY(0deg) scale(1);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fadeOut {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+  
+  .container {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    z-index: 2;
+    opacity: 0;
+    animation: fadeIn 0.6s ease 3s forwards;
+  }
+  
+  .sidebar {
+    width: 340px;
+    background: rgba(26, 26, 46, 0.8);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 215, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .sidebar-header {
+    padding: 24px 20px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+    background: rgba(255, 215, 0, 0.05);
+  }
+  
+  .sidebar-header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #ffd700;
+    margin-bottom: 4px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  
+  .sidebar-header .subtitle {
+    font-size: 0.875rem;
+    color: #c9b037;
+    opacity: 0.8;
+  }
+  
+  .task-form {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  .form-group:last-child {
+    margin-bottom: 0;
+  }
+  
+  input, select, button {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid rgba(255, 215, 0, 0.15);
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    transition: all 0.15s ease;
+  }
+  
+  input, select {
+    background: transparent;
+    color: #e8e8e8;
+    border-color: rgba(255, 215, 0, 0.2);
+  }
+  
+  input::placeholder {
+    color: rgba(232, 232, 232, 0.4);
+  }
+  
+  input:focus, select:focus {
+    outline: none;
+    border-color: #ffd700;
+    background: rgba(255, 215, 0, 0.02);
+  }
+  
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) sepia(1) saturate(5) hue-rotate(40deg);
+    cursor: pointer;
+    opacity: 0.7;
+  }
+  
+  input[type="datetime-local"]::-webkit-datetime-edit-text,
+  input[type="datetime-local"]::-webkit-datetime-edit-month-field,
+  input[type="datetime-local"]::-webkit-datetime-edit-day-field,
+  input[type="datetime-local"]::-webkit-datetime-edit-year-field,
+  input[type="datetime-local"]::-webkit-datetime-edit-hour-field,
+  input[type="datetime-local"]::-webkit-datetime-edit-minute-field,
+  input[type="datetime-local"]::-webkit-datetime-edit-ampm-field {
+    color: transparent;
+  }
+  
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-text,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-month-field,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-day-field,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-year-field,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-hour-field,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-minute-field,
+  input[type="datetime-local"]:focus::-webkit-datetime-edit-ampm-field {
+    color: #e8e8e8;
+  }
+  
+  select option {
+    background: #1a1a2e;
+    color: #e8e8e8;
+  }
+  
+  .add-btn {
+    background: #8b0000;
+    color: #ffd700;
+    border: 1px solid rgba(139, 0, 0, 0.4);
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+  }
+  
+  .add-btn:hover {
+    background: #a00000;
+    border-color: #ffd700;
+  }
+  
+  .tasks-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  
+  .tasks-container::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .tasks-container::-webkit-scrollbar-track {
+    background: rgba(255, 215, 0, 0.05);
+  }
+  
+  .tasks-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.3);
+    border-radius: 3px;
+  }
+  
+  .task {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    margin-bottom: 8px;
+    background: rgba(255, 248, 220, 0.05);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 10px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .task:hover {
+    background: rgba(255, 248, 220, 0.08);
+    border-color: rgba(255, 215, 0, 0.2);
+    transform: translateX(2px);
+  }
+  
+  .task.completed {
+    opacity: 0.5;
+  }
+  
+  .task.completed .task-content {
+    text-decoration: line-through;
+  }
+  
+  .priority-high {
+    border-left: 4px solid #dc143c;
+  }
+  
+  .priority-medium {
+    border-left: 4px solid #ff8c00;
+  }
+  
+  .priority-low {
+    border-left: 4px solid #228b22;
+  }
+  
+  .task-checkbox {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+    padding: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    accent-color: #ffd700;
+  }
+  
+  .task-content {
+    flex: 1;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #e8e8e8;
+  }
+  
+  .task-delete {
+    width: auto;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    background: transparent;
+    border: 1px solid rgba(220, 20, 60, 0.3);
+    color: #ff6b6b;
+    border-radius: 3px;
+    opacity: 0;
+    transition: all 0.15s ease;
+  }
+  
+  .task:hover .task-delete {
+    opacity: 1;
+  }
+  
+  .task-delete:hover {
+    background: #dc143c;
+    color: white;
+    border-color: #dc143c;
+  }
+  
+  .main-content {
+    flex: 1;
+    background: rgba(10, 10, 15, 0.5);
+    position: relative;
+    padding: 40px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .main-content::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .main-content::-webkit-scrollbar-track {
+    background: rgba(255, 215, 0, 0.05);
+  }
+  
+  .main-content::-webkit-scrollbar-thumb {
+    background: rgba(255, 215, 0, 0.3);
+    border-radius: 3px;
+  }
+  
+  .welcome-area {
+    text-align: center;
+    max-width: 600px;
+    margin: 0 auto 40px auto;
+    padding: 20px 0;
+  }
+  
+  .welcome-title {
+    font-family: 'Cinzel', serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #ffd700, #b8860b, #daa520);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .welcome-subtitle {
+    font-size: 1.1rem;
+    color: rgba(232, 232, 232, 0.7);
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+  
+  .due-tasks-section {
+    max-width: 800px;
+    margin: 0 auto;
+    flex: 1;
+  }
+  
+  .due-tasks-header {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    color: #ffd700;
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  
+  .due-task-card {
+    background: rgba(255, 248, 220, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .due-task-card:hover {
+    background: rgba(128, 128, 128, 0.1);
+    border-color: #ffd700;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
+  }
+  
+  .due-task-priority {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  
+  .due-task-priority.high {
+    background: rgba(220, 20, 60, 0.2);
+    color: #ff6b6b;
+    border: 1px solid rgba(220, 20, 60, 0.3);
+  }
+  
+  .due-task-priority.medium {
+    background: rgba(255, 140, 0, 0.2);
+    color: #ff8c00;
+    border: 1px solid rgba(255, 140, 0, 0.3);
+  }
+  
+  .due-task-priority.low {
+    background: rgba(34, 139, 34, 0.2);
+    color: #90ee90;
+    border: 1px solid rgba(34, 139, 34, 0.3);
+  }
+  
+  .due-task-title {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #e8e8e8;
+    margin-bottom: 6px;
+  }
+  
+  .due-task-time {
+    font-size: 0.9rem;
+    color: rgba(232, 232, 232, 0.6);
+  }
+  
+  .no-due-tasks {
+    text-align: center;
+    color: rgba(232, 232, 232, 0.5);
+    font-style: italic;
+    margin-top: 40px;
+  }
+  
+  .magical-elements {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    top: 0;
+    left: 0;
+  }
+  
+  .floating-element {
+    position: absolute;
+    font-size: 2rem;
+    opacity: 0.1;
+    animation: float 6s ease-in-out infinite;
+  }
+  
+  .floating-element:nth-child(1) { top: 20%; left: 10%; animation-delay: 0s; }
+  .floating-element:nth-child(2) { top: 40%; right: 15%; animation-delay: 2s; }
+  .floating-element:nth-child(3) { bottom: 30%; left: 20%; animation-delay: 4s; }
+  .floating-element:nth-child(4) { bottom: 20%; right: 25%; animation-delay: 1s; }
+  
+  @keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    33% { transform: translateY(-10px) rotate(5deg); }
+    66% { transform: translateY(5px) rotate(-3deg); }
+  }
+  
+  /* Magical completion popup */
+  .magic-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.95), rgba(184, 134, 11, 0.95));
+    backdrop-filter: blur(20px);
+    border: 2px solid #ffd700;
+    border-radius: 16px;
+    padding: 32px 40px;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 1.5rem;
+    color: #1a1a2e;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 
+      0 20px 40px rgba(0, 0, 0, 0.3),
+      0 0 60px rgba(255, 215, 0, 0.4),
+      inset 0 2px 4px rgba(255, 255, 255, 0.2);
+    animation: magicalAppear 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+  }
+  
+  .magic-popup::before {
+    content: '✨';
+    position: absolute;
+    top: -10px;
+    left: -10px;
+    font-size: 2rem;
+    animation: sparkle 2s infinite;
+  }
+  
+  .magic-popup::after {
+    content: '⚡';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    font-size: 2rem;
+    animation: sparkle 2s infinite 1s;
+  }
+  
+  @keyframes magicalAppear {
+    0% {
+      transform: translate(-50%, -50%) scale(0) rotate(-180deg);
+      opacity: 0;
+    }
+    70% {
+      transform: translate(-50%, -50%) scale(1.05) rotate(-10deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+  }
+  
+  @keyframes sparkle {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+      opacity: 0.8;
+    }
+    50% {
+      transform: scale(1.3) rotate(180deg);
+      opacity: 1;
+    }
+  }
+  
+  .magic-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 999;
+    opacity: 0;
+    animation: fadeIn 0.3s ease forwards;
+  }
+  
+  /* Confetti Animation */
+  .confetti {
+    position: fixed;
+    width: 8px;
+    height: 8px;
+    z-index: 1001;
+    pointer-events: none;
+  }
+  
+  .confetti:before {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+  
+  .confetti:nth-child(odd):before {
+    background: #ffd700;
+    box-shadow: 0 0 6px rgba(255, 215, 0, 0.8);
+  }
+  
+  .confetti:nth-child(even):before {
+    background: #ff6b6b;
+    box-shadow: 0 0 6px rgba(255, 107, 107, 0.8);
+  }
+  
+  .confetti:nth-child(3n):before {
+    background: #4ecdc4;
+    box-shadow: 0 0 6px rgba(78, 205, 196, 0.8);
+  }
+  
+  .confetti:nth-child(4n):before {
+    background: #45b7d1;
+    box-shadow: 0 0 6px rgba(69, 183, 209, 0.8);
+  }
+  
+  .confetti:nth-child(5n):before {
+    background: #96ceb4;
+    box-shadow: 0 0 6px rgba(150, 206, 180, 0.8);
+  }
+  
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+  
+  @media (max-width: 768px) {
+    .sidebar {
+      width: 100%;
+      position: absolute;
+      z-index: 10;
+    }
+    
+    .main-content {
+      display: none;
+    }
+    
+    .welcome-title {
+      font-size: 2rem;
+    }
+    
+    .due-tasks-section {
+      padding: 0 20px;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="loading-screen">
+  <div class="warp-container">
+    <div class="warp-text">Hogwarts</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h1>Hogwarts Tasks</h1>
+      <div class="subtitle">⚡ Magical Task Management ⚡</div>
+    </div>
+    
+    <div class="task-form">
+      <div class="form-group">
+        <input type="text" id="taskInput" placeholder="What magical task awaits?">
+      </div>
+      <div class="form-group">
+        <input type="datetime-local" id="dueDate">
+      </div>
+      <div class="form-group">
+        <select id="priority">
+          <option value="high">🔥 Urgent (Voldemort Level)</option>
+          <option value="medium">⚡ Important (Quidditch Match)</option>
+          <option value="low">🌟 Normal (Herbology Homework)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <button class="add-btn" onclick="addTask()">Cast Task Spell</button>
+      </div>
+    </div>
+    
+    <div class="tasks-container" id="taskList">
+      <!-- Tasks will be dynamically added here -->
+    </div>
+  </div>
+  
+  <div class="main-content">
+    <div class="welcome-area">
+      <h1 class="welcome-title">Welcome, Wizard</h1>
+      <p class="welcome-subtitle">
+        Organize your magical tasks and quests with the wisdom of Hogwarts.<br>
+        Create tasks on the left to begin your journey to productivity.
+      </p>
+    </div>
+    
+    <div class="due-tasks-section">
+      <h2 class="due-tasks-header" id="dueTasksHeader" style="display: none;">⏰ Tasks Due Soon</h2>
+      <div id="dueTasksList">
+        <!-- Due tasks will appear here -->
+      </div>
+      <div class="no-due-tasks" id="noDueTasks" style="display: none;">
+        No upcoming deadlines. You're caught up, wizard! ⚡
+      </div>
+    </div>
+    
+    <div class="magical-elements">
+      <div class="floating-element">🦉</div>
+      <div class="floating-element">⚡</div>
+      <div class="floating-element">🔮</div>
+      <div class="floating-element">✨</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const taskList = document.getElementById('taskList');
+  const dueTasksList = document.getElementById('dueTasksList');
+  const dueTasksHeader = document.getElementById('dueTasksHeader');
+  const noDueTasks = document.getElementById('noDueTasks');
+  let allTasks = [];
+  
+  function addTask() {
+    const taskInput = document.getElementById('taskInput');
+    const dueDate = document.getElementById('dueDate');
+    const priority = document.getElementById('priority').value;
+    
+    if (!taskInput.value.trim()) {
+      alert('Please enter a magical task!');
+      return;
+    }
+    
+    const taskData = {
+      id: Date.now(),
+      text: taskInput.value,
+      dueDate: dueDate.value,
+      priority: priority,
+      completed: false
+    };
+    
+    allTasks.push(taskData);
+    createTaskElement(taskData);
+    updateDueTasks();
+    
+    if (dueDate.value) {
+      setReminder(taskInput.value, dueDate.value);
+    }
+    
+    taskInput.value = '';
+    dueDate.value = '';
+  }
+  
+  function createTaskElement(taskData) {
+    const taskDiv = document.createElement('div');
+    taskDiv.classList.add('task', `priority-${taskData.priority}`);
+    taskDiv.dataset.taskId = taskData.id;
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-checkbox';
+    checkbox.checked = taskData.completed;
+    checkbox.addEventListener('change', function() {
+      taskData.completed = this.checked;
+      if (this.checked) {
+        taskDiv.classList.add('completed');
+        showMagicalCongrats();
+      } else {
+        taskDiv.classList.remove('completed');
+      }
+      updateDueTasks();
+    });
+    
+    const taskContent = document.createElement('div');
+    taskContent.className = 'task-content';
+    const dueDateText = taskData.dueDate ? new Date(taskData.dueDate).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    }) : 'No deadline';
+    taskContent.innerHTML = `
+      <div style="font-weight: 500; margin-bottom: 2px;">${taskData.text}</div>
+      <div style="font-size: 0.8rem; opacity: 0.7;">Due: ${dueDateText}</div>
+    `;
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Vanish';
+    deleteBtn.className = 'task-delete';
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      allTasks = allTasks.filter(t => t.id !== taskData.id);
+      taskDiv.remove();
+      updateDueTasks();
+    };
+    
+    if (taskData.completed) {
+      taskDiv.classList.add('completed');
+    }
+    
+    taskDiv.appendChild(checkbox);
+    taskDiv.appendChild(taskContent);
+    taskDiv.appendChild(deleteBtn);
+    taskList.appendChild(taskDiv);
+  }
+  
+  function updateDueTasks() {
+    const now = new Date();
+    const next7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    const dueTasks = allTasks.filter(task => 
+      !task.completed && 
+      task.dueDate && 
+      new Date(task.dueDate) <= next7Days && 
+      new Date(task.dueDate) >= now
+    ).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+    
+    dueTasksList.innerHTML = '';
+    
+    if (dueTasks.length > 0) {
+      dueTasksHeader.style.display = 'block';
+      noDueTasks.style.display = 'none';
+      
+      dueTasks.forEach(task => {
+        const dueTaskCard = document.createElement('div');
+        dueTaskCard.className = 'due-task-card';
+        
+        const priority = document.createElement('span');
+        priority.className = `due-task-priority ${task.priority}`;
+        priority.textContent = task.priority.charAt(0).toUpperCase() + task.priority.slice(1);
+        
+        const title = document.createElement('div');
+        title.className = 'due-task-title';
+        title.textContent = task.text;
+        
+        const time = document.createElement('div');
+        time.className = 'due-task-time';
+        const dueDate = new Date(task.dueDate);
+        const timeDiff = dueDate - now;
+        const daysDiff = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+        
+        if (daysDiff === 0) {
+          time.textContent = `Due today at ${dueDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}`;
+        } else if (daysDiff === 1) {
+          time.textContent = `Due tomorrow at ${dueDate.toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'})}`;
+        } else {
+          time.textContent = `Due in ${daysDiff} days - ${dueDate.toLocaleDateString('en-US', {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'})}`;
+        }
+        
+        dueTaskCard.appendChild(priority);
+        dueTaskCard.appendChild(title);
+        dueTaskCard.appendChild(time);
+        dueTasksList.appendChild(dueTaskCard);
+      });
+    } else {
+      dueTasksHeader.style.display = 'none';
+      if (allTasks.some(task => task.dueDate && !task.completed)) {
+        noDueTasks.style.display = 'block';
+      } else {
+        noDueTasks.style.display = 'none';
+      }
+    }
+  }
+  
+  function createConfetti(sourceElement) {
+    const rect = sourceElement.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    for (let i = 0; i < 30; i++) {
+      const confetti = document.createElement('div');
+      confetti.className = 'confetti';
+      
+      // Start confetti from the popup center
+      confetti.style.left = centerX + 'px';
+      confetti.style.top = centerY + 'px';
+      
+      const fallDuration = Math.random() * 2 + 2;
+      const angle = (Math.PI * 2 * i) / 30; // Spread evenly in circle
+      const velocity = 200 + Math.random() * 100;
+      const endX = centerX + Math.cos(angle) * velocity;
+      const endY = centerY + Math.sin(angle) * velocity + window.innerHeight;
+      
+      confetti.style.setProperty('--end-x', endX + 'px');
+      confetti.style.setProperty('--end-y', endY + 'px');
+      confetti.style.setProperty('--duration', fallDuration + 's');
+      
+      confetti.style.animation = `confettiBurst var(--duration) ease-out forwards, confettiSway var(--duration) ease-in-out infinite`;
+      
+      document.body.appendChild(confetti);
+      
+      setTimeout(() => {
+        if (document.body.contains(confetti)) {
+          document.body.removeChild(confetti);
+        }
+      }, fallDuration * 1000);
+    }
+    
+    // Add the confetti animation dynamically
+    if (!document.querySelector('#confetti-styles')) {
+      const style = document.createElement('style');
+      style.id = 'confetti-styles';
+      style.textContent = `
+        @keyframes confettiBurst {
+          0% {
+            transform: translate(0, 0) scale(1);
+            opacity: 1;
+          }
+          100% {
+            transform: translate(calc(var(--end-x) - ${centerX}px), calc(var(--end-y) - ${centerY}px)) scale(0.5);
+            opacity: 0;
+          }
+        }
+        @keyframes confettiSway {
+          0%, 100% { transform: rotateZ(0deg); }
+          25% { transform: rotateZ(15deg); }
+          75% { transform: rotateZ(-15deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+  
+  function showMagicalCongrats() {
+    const overlay = document.createElement('div');
+    overlay.className = 'magic-overlay';
+    
+    const popup = document.createElement('div');
+    popup.className = 'magic-popup';
+    popup.innerHTML = '🎉 Brilliant! 10 Points to Your House! 🏆<br><small style="font-size: 1rem; opacity: 0.8;">Task completed with magical precision!</small>';
+    
+    document.body.appendChild(overlay);
+    document.body.appendChild(popup);
+    
+    // Create confetti from the popup after it appears
+    setTimeout(() => {
+      createConfetti(popup);
+    }, 300);
+    
+    setTimeout(() => {
+      popup.style.animation = 'magicalAppear 0.4s ease reverse forwards';
+      overlay.style.animation = 'fadeIn 0.3s ease reverse forwards';
+      
+      setTimeout(() => {
+        if (document.body.contains(overlay)) document.body.removeChild(overlay);
+        if (document.body.contains(popup)) document.body.removeChild(popup);
+      }, 400);
+    }, 3000);
+  }
+  
+  function setReminder(task, dueTime) {
+    const due = new Date(dueTime).getTime();
+    const now = Date.now();
+    const timeout = due - now;
+    
+    if (timeout > 0) {
+      setTimeout(() => {
+        alert(`⏰ Magical Reminder: "${task}" is due now! Don't disappoint Professor McGonagall! 🦉`);
+      }, timeout);
+    }
+  }
+  
+  // Allow Enter key to add tasks
+  document.getElementById('taskInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+      addTask();
+    }
+  });
+</script>
+</body>
+</html>
